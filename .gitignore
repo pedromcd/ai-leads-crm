@@ -1,0 +1,23 @@
+# venv
+.venv/
+
+# DB
+data/*.db
+
+# logs
+*.log
+
+# secrets / configs
+.azure/
+.android/
+.env
+.env.*
+**/*key*
+**/*private*
+
+# OS
+Thumbs.db
+.DS_Store
+
+__pycache__/
+*.pyc
