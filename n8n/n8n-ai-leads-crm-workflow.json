@@ -1,0 +1,220 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ab336e3c-7bd9-4b7d-9110-755f8079eb3b",
+      "name": "Webhook",
+      "webhookId": "3bc69223-a98b-458a-8b61-a6e8a9daa5fc"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "790e5d62-7c86-48df-83c4-270b547ae508",
+              "name": "=name",
+              "value": "=={{$json.body.name}}",
+              "type": "string"
+            },
+            {
+              "id": "8ab70988-dd5b-485a-8d83-afe28606dc1f",
+              "name": "email",
+              "value": "=={{$json.body.email}}",
+              "type": "string"
+            },
+            {
+              "id": "065fd73d-4854-407d-90d7-e2eb68959bcd",
+              "name": "phone",
+              "value": "=={{$json.body.phone}}",
+              "type": "string"
+            },
+            {
+              "id": "c4070f12-4c43-4216-aae6-f5ea94666c0d",
+              "name": "source",
+              "value": "=={{$json.body.source}}",
+              "type": "string"
+            },
+            {
+              "id": "32c03ae7-4a10-43cd-bf0b-9b2fa18aa582",
+              "name": "message",
+              "value": "=={{$json.body.message}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "00c54065-299f-478e-8daf-400dd8cbc71e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/lead",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"name\": String($json.name).replace(/^=+/, \"\"),\n  \"email\": String($json.email || \"\").replace(/^=+/, \"\"),\n  \"phone\": String($json.phone || \"\").replace(/^=+/, \"\"),\n  \"source\": String($json.source || \"\").replace(/^=+/, \"\"),\n  \"message\": String($json.message).replace(/^=+/, \"\"),\n  \"intent\": $json.intent,\n  \"priority\": $json.priority,\n  \"score\": Number($json.score),\n  \"next_action\": $json.next_action,\n  \"suggested_reply\": $json.suggested_reply\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        0
+      ],
+      "id": "2342eefd-0539-4b1c-a3b5-9cb29dc4c590",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"lead_saved\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "13e3bb16-e908-4547-a23c-f525c6717098",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer  credentials"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "HTTP-Referer",
+              "value": "http://localhost"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"mistralai/mistral-7b-instruct\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Return ONLY valid JSON (no markdown, no backticks). Keys: intent, priority, score, next_action, suggested_reply. intent must be one of: Pricing, Trial, Support, General, Partnership. priority must be one of: Low, Medium, High, Urgent. score must be an integer 0-100. suggested_reply must be a short WhatsApp-style reply in Portuguese.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Name: {{ $json.name }}\\nMessage: {{ $json.message }}\"\n    }\n  ],\n  \"temperature\": 0.3\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ce5368ad-49f1-4191-afad-9a4a3e0cb787",
+      "name": "OpenRouter"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai o conteúdo do modelo\nconst raw = $json.choices?.[0]?.message?.content || \"\";\n\n// Remove ```json ... ``` caso venha\nconst cleaned = raw\n  .replace(/```json\\s*/i, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\n// Converte para objeto\nlet ai = {};\ntry {\n  ai = JSON.parse(cleaned);\n} catch (e) {\n  ai = {\n    intent: \"General\",\n    priority: \"Medium\",\n    score: 50,\n    next_action: \"Follow up\",\n    suggested_reply: cleaned,\n  };\n}\n\n// Junta com dados do lead (do node Edit Fields)\nconst lead = $node[\"Edit Fields\"].json;\n\nreturn [{\n  ...lead,\n  intent: ai.intent,\n  priority: ai.priority,\n  score: ai.score,\n  next_action: ai.next_action,\n  suggested_reply: ai.suggested_reply\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "79f202e3-5976-4c99-b67e-ab2ac49487de",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "OpenRouter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c6dec861-953e-4c66-bf4e-c1b8c23c2930",
+  "meta": {
+    "instanceId": "ae37f3e1ffcfd09d22618a69bb35d2a6904dd395a1f143788498073dcc547343"
+  },
+  "id": "hJHUScW3ysuy6KMO",
+  "tags": []
+}
