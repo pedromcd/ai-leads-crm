@@ -1,198 +1,154 @@
-# AI Leads CRM – Sistema Inteligente de Qualificação de Leads
+# AI Leads CRM
 
-🇧🇷 Versão em Português abaixo  
-🇺🇸 English version below
+**LLM-powered lead qualification pipeline using n8n, FastAPI, OpenRouter, and SQLite.**
 
----
+This project demonstrates how a language model can be integrated into an end-to-end business workflow instead of being used as an isolated chatbot. Incoming leads are processed by an automated pipeline, converted into structured AI outputs, validated by a backend API, and persisted for later analysis.
 
-# 🇧🇷 Versão em Português
+## System flow
 
-## 📌 Visão Geral
+```text
+Inbound lead
+    ↓
+n8n webhook
+    ↓
+LLM classification via OpenRouter
+    ↓
+Structured JSON output
+    ↓
+FastAPI validation
+    ↓
+SQLite persistence
+    ↓
+Reporting / downstream actions
+```
 
-O **AI Leads CRM** é um sistema completo de qualificação automática de leads utilizando Inteligência Artificial, automação de workflows e backend customizado.
+The AI step produces structured fields such as:
 
-O sistema recebe leads via webhook, utiliza um modelo de linguagem (LLM) para classificar intenção, definir prioridade e score, gerar resposta sugerida e armazenar os dados estruturados em um banco SQLite.
+```json
+{
+  "intent": "...",
+  "priority": "...",
+  "score": 0,
+  "next_action": "...",
+  "suggested_reply": "..."
+}
+```
 
-Este projeto simula uma aplicação real de IA aplicada ao negócio, com arquitetura modular e separação clara entre automação e backend.
+## What the system does
 
----
+- receives leads through an n8n webhook;
+- classifies lead intent with an LLM;
+- assigns priority;
+- produces a score from 0 to 100;
+- proposes the next action;
+- generates a suggested reply;
+- validates the structured payload with Pydantic/FastAPI;
+- persists the result in SQLite;
+- exposes API endpoints to inspect stored leads;
+- provides a reporting script for basic analysis.
 
-## 🚀 Arquitetura
+## Backend model
 
-Webhook (n8n)  
-→ Classificação com LLM (OpenRouter – Mistral 7B)  
-→ Parsing e normalização do JSON  
-→ Backend FastAPI  
-→ Banco de dados SQLite  
+The FastAPI backend validates the lead payload before storage:
 
----
+```python
+class Lead(BaseModel):
+    name: str
+    email: Optional[str] = ""
+    phone: Optional[str] = ""
+    source: Optional[str] = "web"
+    message: str
+    intent: str
+    priority: str
+    score: int
+    next_action: str
+    suggested_reply: str
+```
 
-## 🧠 Funcionalidades
+The score is normalized to the accepted 0–100 range before persistence.
 
-- Recebimento automático de leads via webhook
-- Classificação de intenção (Pricing, Trial, Support, etc.)
-- Definição automática de prioridade (Low, Medium, High, Urgent)
-- Score inteligente de 0 a 100
-- Geração de resposta sugerida para atendimento
-- Persistência dos dados em banco SQLite
-- API REST desenvolvida com FastAPI
-- Orquestração do fluxo com n8n
+## API
 
----
+### Health check
 
-## 🛠 Tecnologias Utilizadas
+```http
+GET /health
+```
 
-- Python
-- FastAPI
-- SQLite
-- n8n (Docker)
-- OpenRouter (API de LLM)
-- Uvicorn
+### Store an analyzed lead
 
----
+```http
+POST /lead
+```
 
-## 📂 Estrutura do Projeto
+### List recent leads
 
+```http
+GET /leads
+```
+
+## Tech stack
+
+- **Python**
+- **FastAPI**
+- **Pydantic**
+- **SQLite**
+- **n8n**
+- **Docker**
+- **OpenRouter**
+- **Mistral 7B**
+- **Uvicorn**
+
+## Repository structure
+
+```text
 ai-leads-crm/
-│
+├── data/
+│   └── leads.db
+├── n8n/
+│   └── ai-leads-automation-workflow.json
 ├── python/
 │   ├── app.py
 │   ├── report.py
 │   └── requirements.txt
-│
-├── data/
-│   └── leads.db
-│
-├── n8n/
-│   └── ai-leads-automation-workflow.json
-│
 └── README.md
+```
 
----
+## Engineering focus
 
-## 📊 Relatórios
+This project explores several practical problems that appear when integrating LLMs into software systems:
 
-O projeto inclui um script simples para análise dos dados armazenados.
+- obtaining predictable structured outputs from generative models;
+- validating model-generated data before it reaches application storage;
+- separating workflow orchestration from backend responsibilities;
+- handling type mismatches and malformed payloads between services;
+- making AI decisions observable through persisted fields;
+- connecting model outputs to deterministic business logic.
 
-Execute:
+## Evaluation opportunities
 
-python report.py
+A natural next step would be to add an evaluation layer for the AI component, including:
 
-O relatório exibe:
-- Total de leads
-- Leads por intenção
-- Leads por prioridade
-- Média de score
+- classification accuracy by intent;
+- priority-label consistency;
+- score calibration;
+- structured-output failure rate;
+- comparison between models;
+- prompt-version experiments;
+- latency and cost tracking.
 
----
+These extensions would turn the application into a useful testbed for studying reliability and evaluation of LLM-powered software systems.
 
-## 🎯 Caso de Uso
+## Running locally
 
-Este sistema pode ser aplicado em:
+Install the Python dependencies from `python/requirements.txt`, start the FastAPI application, and import the workflow from the `n8n/` directory into an n8n instance.
 
-- EdTechs
-- Empresas SaaS
-- Times de vendas
-- Automação de marketing
-- Qualificação automática de inbound leads
+The database path can be configured with the `DB_PATH` environment variable.
 
----
+## Author
 
-## 📚 Principais Aprendizados
+**Pedro Marques Correa Domingues**  
+B.Sc. Computer Science candidate  
+Interests: AI systems, LLM evaluation, RAG, automation, and software engineering
 
-- Orquestração de LLMs em fluxos automatizados
-- Extração estruturada de JSON a partir de respostas de IA
-- Validação e persistência backend
-- Separação clara entre camada de automação e API
-- Construção de arquitetura modular para aplicações de IA
-
----
-
-# 🇺🇸 English Version
-
-## 📌 Overview
-
-**AI Leads CRM** is an end-to-end automated lead qualification system built using workflow automation and Large Language Models (LLMs).
-
-The system receives inbound leads via webhook, uses an LLM to classify intent, assign priority and score, generate a suggested reply, and store structured data in a SQLite database.
-
-This project simulates a real-world AI-powered business application with clean architecture and modular separation between automation and backend.
-
----
-
-## 🚀 Architecture
-
-Webhook (n8n)  
-→ LLM Classification (OpenRouter – Mistral 7B)  
-→ JSON Parsing & Normalization  
-→ FastAPI Backend  
-→ SQLite Database  
-
----
-
-## 🧠 Features
-
-- Automatic lead intake via webhook
-- AI-powered intent classification
-- Automatic priority detection
-- Intelligent scoring system (0–100)
-- Suggested reply generation
-- Persistent storage using SQLite
-- REST API built with FastAPI
-- Workflow orchestration using n8n
-
----
-
-## 🛠 Tech Stack
-
-- Python
-- FastAPI
-- SQLite
-- n8n (Docker)
-- OpenRouter (LLM API)
-- Uvicorn
-
----
-
-## 📊 Reporting
-
-The project includes a simple reporting script.
-
-Run:
-
-python report.py
-
-It outputs:
-- Total leads
-- Leads by intent
-- Leads by priority
-- Average score
-
----
-
-## 🎯 Use Case
-
-This system can be applied to:
-
-- EdTech companies
-- SaaS platforms
-- Sales automation
-- Marketing automation pipelines
-- Intelligent inbound lead qualification
-
----
-
-## 📚 Key Learnings
-
-- LLM orchestration in automation workflows
-- Structured JSON extraction from AI outputs
-- Backend validation and persistence
-- Modular AI application architecture
-
----
-
-## 👨‍💻 Author
-
-Pedro Marques  
-Computer Science Undergraduate  
-Automation & AI Enthusiast
+[Portfolio](https://pedromcd.github.io) · [GitHub](https://github.com/pedromcd)
