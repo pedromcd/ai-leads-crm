@@ -1,3 +1,5 @@
+**English** | [Português](README.pt-BR.md)
+
 # AI Leads CRM
 
 **LLM-powered lead qualification pipeline using n8n, FastAPI, OpenRouter, and SQLite.**
